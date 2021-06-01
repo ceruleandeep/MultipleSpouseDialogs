@@ -52,12 +52,6 @@
     <None Include="packages.config" />
     <None Include="manifest.json" />
     <None Include="Assets\dialog-basic.json" />
-    <None Include="Assets\dialog-seb-abi.json" />
-    <None Include="Assets\dialog-seasonal.json" />
-    <None Include="Assets\dialog-luck.json" />
-    <None Include="Assets\dialog-time.json" />
-    <None Include="Assets\dialog-farmer.json" />
-    <None Include="Assets\dialog-1.1.3.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Assets\" />

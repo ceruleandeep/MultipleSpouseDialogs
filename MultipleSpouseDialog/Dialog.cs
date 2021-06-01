@@ -28,7 +28,7 @@ namespace MultipleSpouseDialog
         public static IManifest manifest;
         public static ContentPatcher.IContentPatcherAPI cp_api;
 
-        public static void Load(string directory, IMonitor m, IModHelper h, IManifest mf)
+        public static void Initialize(IMonitor m, IModHelper h, IManifest mf)
         {
             monitor = m;
             helper = h;
@@ -46,36 +46,47 @@ namespace MultipleSpouseDialog
 
             Data = new List<ConfigDialog>();
 
+        }
+        public static void Load(string directory)
+        {
             if (cp_api == null)
             {
                 monitor.Log($"Content patcher API not available; this won't end well", LogLevel.Error);
             } 
 
-            foreach (string filename in Directory.GetFiles(Path.Combine(directory, "Assets"), "*.json")) {
-                List<ConfigDialog> entries;
-                monitor.Log($"Reading dialog from {filename}", LogLevel.Debug);
-
-                try
-                {
-                    string filecontents = File.ReadAllText(filename);
-                    entries = JsonConvert.DeserializeObject<List<ConfigDialog>>(filecontents);
-                    foreach (ConfigDialog dialog in entries)
-                    {
-                        if (dialog.Call == null) dialog.Call = "";
-                        if (dialog.Response == null) dialog.Response = "";
-                        if (dialog.Callers == null) dialog.Callers = "";
-                        if (dialog.Responders == null) dialog.Responders = "";
-                        Data.Add(dialog);
-
-                        if (ModEntry.config.ExtraDebugOutput) monitor.Log($"Dialog loaded: {dialog.Call}: {dialog.Response}. Callers: {dialog.Callers} Responders: {dialog.Responders}", LogLevel.Trace);
-                    }
-                }
-                catch (Exception e)
-                {
-                    monitor.Log($"Error reading from config file {filename}: {e.Message}", LogLevel.Debug);
-                }
+            foreach (string filename in Directory.GetFiles(directory, "*.json"))
+            {
+                if (filename.EndsWith("manifest.json")) continue;
+                LoadFile(filename);
             }
             ready = true;
+        }
+
+
+        private static void LoadFile(string filename)
+        {
+            List<ConfigDialog> entries;
+            monitor.Log($"Reading dialog from {filename}", LogLevel.Debug);
+
+            try
+            {
+                string filecontents = File.ReadAllText(filename);
+                entries = JsonConvert.DeserializeObject<List<ConfigDialog>>(filecontents);
+                foreach (ConfigDialog dialog in entries)
+                {
+                    if (dialog.Call == null) dialog.Call = "";
+                    if (dialog.Response == null) dialog.Response = "";
+                    if (dialog.Callers == null) dialog.Callers = "";
+                    if (dialog.Responders == null) dialog.Responders = "";
+                    Data.Add(dialog);
+
+                    if (ModEntry.config.ExtraDebugOutput) monitor.Log($"Dialog loaded: {dialog.Call}: {dialog.Response}. Callers: {dialog.Callers} Responders: {dialog.Responders}", LogLevel.Trace);
+                }
+            }
+            catch (Exception e)
+            {
+                monitor.Log($"Error reading from config file {filename}: {e.Message}", LogLevel.Debug);
+            }
         }
 
         public static ConfigDialog RandomDialog(string npc1name, string npc2name, bool to_farmer=false)

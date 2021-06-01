@@ -1,19 +1,16 @@
-﻿using System;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using StardewModdingAPI;
+﻿using StardewModdingAPI;
 using StardewValley;
-using StardewValley.Characters;
-using StardewValley.Locations;
 using System.Collections.Generic;
 using System.Linq;
+
+// cut down from the original in Multiple Spouses
+// https://github.com/aedenthorn/StardewValleyMods/blob/master/MultipleSpouses/Misc.cs
+// but still quite possible that there's code in here doing nothing
 
 namespace MultipleSpouseDialog
 {
     public class Misc
     {
-        private static Dictionary<string, int> topOfHeadOffsets = new Dictionary<string, int>();
-
         private static IMonitor Monitor;
         private static IModHelper Helper;
         private static ModConfig Config;
@@ -75,15 +72,6 @@ namespace MultipleSpouseDialog
             }
         }
 
-        public static string GetRandomSpouse(Farmer f)
-        {
-            var spouses = GetSpouses(f, 1);
-            if (spouses.Count == 0)
-                return null;
-            ShuffleDic(ref spouses);
-            return spouses.Keys.ToArray()[0];
-        }
-
         public static string[] relativeRoles = new string[]
         {
             "son",
@@ -127,8 +115,6 @@ namespace MultipleSpouseDialog
             }
             return false;
         }
-
-        
 
         public static void ResetSpouses(Farmer f)
         {

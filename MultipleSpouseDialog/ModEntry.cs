@@ -5,6 +5,9 @@ using StardewModdingAPI.Events;
 using StardewModdingAPI.Utilities;
 using StardewValley;
 using System.Collections.Generic;
+using Newtonsoft.Json;
+using System.IO;
+using System.Linq;
 
 namespace MultipleSpouseDialog
 {
@@ -40,8 +43,16 @@ namespace MultipleSpouseDialog
 
         private void onLaunched(object sender, GameLaunchedEventArgs e)
         {
+            Dialog.Initialize(Monitor, PHelper, ModManifest);
             Dialog.cp_api = this.Helper.ModRegistry.GetApi<ContentPatcher.IContentPatcherAPI>("Pathoschild.ContentPatcher");
-            Dialog.Load(Helper.DirectoryPath + System.IO.Path.DirectorySeparatorChar, Monitor, PHelper, ModManifest);
+
+            Dialog.Load(Path.Combine(Helper.DirectoryPath, "Assets"));
+
+            foreach (IContentPack contentPack in this.Helper.ContentPacks.GetOwned())
+            {
+                // this.Monitor.Log($"Reading content pack: {contentPack.Manifest.Name} {contentPack.Manifest.Version} from {contentPack.DirectoryPath}", LogLevel.Debug);
+                Dialog.Load(contentPack.DirectoryPath);
+            }
 
             config = Helper.ReadConfig<ModConfig>();
             var api = Helper.ModRegistry.GetApi<GenericModConfigMenuAPI>("spacechase0.GenericModConfigMenu");

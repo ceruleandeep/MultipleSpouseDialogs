@@ -52,7 +52,7 @@ namespace MultipleSpouseDialog
 
                     if (location == Game1.player.currentLocation && ModEntry.config.AllowSpousesToChat)
                     {
-                        Chatting.TrySpousesChat();
+                        Chatting.TryChat();
                     }
                 }
             }

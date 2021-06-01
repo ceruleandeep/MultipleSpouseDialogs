@@ -8,32 +8,52 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
+// a hack-up of: https://github.com/aedenthorn/StardewValleyMods/blob/master/MultipleSpouses/Kissing.cs
+
 namespace MultipleSpouseDialog
 {
     public class Chatting
     {
         public static List<string> chattingSpouses = new List<string>();
         public static int lastChatTime = 0;
-        public static SoundEffect kissEffect = null;
 
         private static bool Eligible(NPC npc1, NPC npc2)
         {
+            if (npc1 is null || npc2 is null) return false;
+
+            //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"Eligible(): checking for {npc1.Name} {npc2.Name}", LogLevel.Debug);
+
             float distance = Vector2.Distance(npc1.position, npc2.position);
             double roll = ModEntry.myRand.NextDouble();
             bool lucky = roll < ModEntry.config.SpouseChatChance;
+            bool already = chattingSpouses.Contains(npc1.Name) || chattingSpouses.Contains(npc2.Name);
+            bool in_range = distance >= ModEntry.config.MinDistanceToChat && distance < ModEntry.config.MaxDistanceToChat;
+            bool married = npc1.getSpouse() != null && npc2.getSpouse() != null;
+            bool married_to_same = married && npc1.getSpouse().Name == npc2.getSpouse().Name;
+            bool too_soon = lastChatTime < ModEntry.config.MinSpouseChatInterval;
+            bool not_related = !ModEntry.config.PreventRelativesFromChatting || !Misc.AreSpousesRelated(npc1.Name, npc2.Name);
+            bool sleeping = npc1.isSleeping || npc2.isSleeping;
 
-            return
-                npc1.getSpouse() != null && npc2.getSpouse() != null
-                    && npc1.getSpouse().Name == npc2.getSpouse().Name
-                    && distance >= ModEntry.config.MinDistanceToChat
-                    && distance < ModEntry.config.MaxDistanceToChat
-                    && !chattingSpouses.Contains(npc1.Name)
-                    && !chattingSpouses.Contains(npc2.Name)
-                    && !npc1.isSleeping
-                    && !npc2.isSleeping
-                    && lastChatTime > ModEntry.config.MinSpouseChatInterval
+            //if (!married) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: not married", LogLevel.Debug);
+            //if (!married_to_same) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: not married to same player", LogLevel.Debug);
+            //if (!in_range) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: not in range", LogLevel.Debug);
+            //if (already) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: NPCs already chatting", LogLevel.Debug);
+            //if (sleeping) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: sleeping", LogLevel.Debug);
+            //if (too_soon) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: other chat recently", LogLevel.Debug);
+            //if (!lucky) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: failed random roll", LogLevel.Debug);
+            //if (!not_related) ModEntry.PMonitor.Log($"    Ineligible: {npc1.Name} {npc2.Name}: related", LogLevel.Debug);
+
+            bool eligible = married
+                    && married_to_same
+                    && in_range
+                    && !already
+                    && !sleeping
+                    && !too_soon
                     && lucky
-                    && (!ModEntry.config.PreventRelativesFromChatting || !Misc.AreSpousesRelated(npc1.Name, npc2.Name));
+                    && not_related;
+
+            //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"    Eligible() result: {npc1.Name} {npc2.Name}: {eligible}", LogLevel.Debug);
+            return eligible;
         }
 
         private static bool Eligible(NPC npc1, Farmer npc2)
@@ -43,36 +63,42 @@ namespace MultipleSpouseDialog
             bool lucky = roll < ModEntry.config.SpouseChatChance;
             bool already = chattingSpouses.Contains(npc1.Name) || chattingSpouses.Contains(npc2.Name);
             bool in_range = distance >= ModEntry.config.MinDistanceToChat && distance < ModEntry.config.MaxDistanceToChat;
+            bool too_soon = lastChatTime < ModEntry.config.MinSpouseChatInterval;
+
+            //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"Eligible: married {npc1.getSpouse() != null} {npc2.getSpouse() != null}", LogLevel.Debug);
+            //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"Eligible: {in_range} {!already} {!npc1.isSleeping} {lastChatTime > ModEntry.config.MinSpouseChatInterval} {lucky}", LogLevel.Debug);
 
             return
                 npc1.getSpouse() != null && npc2.getSpouse() != null
                     && in_range
                     && !already
                     && !npc1.isSleeping
-                    && lastChatTime > ModEntry.config.MinSpouseChatInterval
+                    && !too_soon
                     && lucky
                     ;
         }
 
-        public static void TrySpousesChat()
+        public static void TryChat()
         {
             GameLocation location = Game1.currentLocation;
 
             if (location == null || !ReferenceEquals(location.GetType(), typeof(FarmHouse)))
                 return;
 
-            lastChatTime++;
-
             if (location == null || location.characters == null)
                 return;
+
+            lastChatTime++;
+            if (lastChatTime >= ModEntry.config.MinSpouseChatInterval)
+                chattingSpouses.Clear();
 
             int n_spouses = location.characters.ToList().Count;
             if (ModEntry.myRand.Next(n_spouses) == 0)
             {
                 if (ModEntry.config.ChatWithPlayer) TryPlayerChat();
                 TryNPCsChat();
-
-            } else
+            }
+            else
             {
                 TryNPCsChat();
                 if (ModEntry.config.ChatWithPlayer) TryPlayerChat();
@@ -84,19 +110,23 @@ namespace MultipleSpouseDialog
             GameLocation location = Game1.currentLocation;
             Farmer owner = (location as FarmHouse).owner;
 
-            List<NPC> list = location.characters.ToList();
-
+            List <NPC> list = location.characters.ToList();
             Misc.ShuffleList(ref list);
-
-            if (lastChatTime >= ModEntry.config.MinSpouseChatInterval)
-                chattingSpouses.Clear();
 
             foreach (NPC npc1 in list)
             {
-                if (!owner.friendshipData.ContainsKey(npc1.Name)) continue;
-                if (owner.getFriendshipHeartLevelForNPC(npc1.Name) >= ModEntry.config.MinHeartsForChat) continue;
+                if (!owner.friendshipData.ContainsKey(npc1.Name))
+                {
+                    //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"NPC {npc1.Name} is not friends with {owner.Name}", LogLevel.Debug);
+                    continue;
+                }
+                if (owner.getFriendshipHeartLevelForNPC(npc1.Name) < ModEntry.config.MinHeartsForChat)
+                {
+                    //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"NPC {npc1.Name} has {owner.getFriendshipHeartLevelForNPC(npc1.Name)} hearts, needs {ModEntry.config.MinHeartsForChat}", LogLevel.Debug);
+                    continue;
+                }
 
-                //Monitor.Log($"NPC/Player {npc1.Name} {owner.Name} eligible: {Eligible(npc1, owner)}", LogLevel.Debug);
+                //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"NPC/Player {npc1.Name} {owner.Name} eligible: {Eligible(npc1, owner)}", LogLevel.Debug);
                 if (Eligible(npc1, owner))
                 {
                     chattingSpouses.Add(npc1.Name);
@@ -108,11 +138,9 @@ namespace MultipleSpouseDialog
 
                     PerformChat(npc1, owner);
 
-                    //DelayedAction action = new DelayedAction(5000);
                     var t = Task.Run(async delegate
                     {
                         await Task.Delay(TimeSpan.FromSeconds(1));
-
                         npc1.FacingDirection = npc1face;
                         owner.FacingDirection = npc2face;
                         return;
@@ -127,22 +155,37 @@ namespace MultipleSpouseDialog
             Farmer owner = (location as FarmHouse).owner;
 
             List<NPC> list = location.characters.ToList();
-
             Misc.ShuffleList(ref list);
 
             foreach (NPC npc1 in list)
             {
-                if (!owner.friendshipData.ContainsKey(npc1.Name)) continue;
-                if (owner.getFriendshipHeartLevelForNPC(npc1.Name) >= ModEntry.config.MinHeartsForChat) continue;
+
+                if (!owner.friendshipData.ContainsKey(npc1.Name))
+                {
+                    //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"NPC {npc1.Name} is not friends with {owner.Name}", LogLevel.Debug);
+                    continue;
+                }
+                if (owner.getFriendshipHeartLevelForNPC(npc1.Name) < ModEntry.config.MinHeartsForChat)
+                {
+                    //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"NPC {npc1.Name} has {owner.getFriendshipHeartLevelForNPC(npc1.Name)} hearts, needs {ModEntry.config.MinHeartsForChat}", LogLevel.Debug);
+                    continue;
+                }
 
                 foreach (NPC npc2 in list)
                 {
                     if (npc1.Name == npc2.Name) continue;
 
-                    if (!owner.friendshipData.ContainsKey(npc2.Name)) continue;
-                    if (owner.getFriendshipHeartLevelForNPC(npc2.Name) >= ModEntry.config.MinHeartsForChat) continue;
+                    if (!owner.friendshipData.ContainsKey(npc2.Name))
+                    {
+                        //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"NPC {npc2.Name} is not friends with {owner.Name}", LogLevel.Debug);
+                        continue;
+                    }
+                    if (owner.getFriendshipHeartLevelForNPC(npc2.Name) < ModEntry.config.MinHeartsForChat)
+                    {
+                        //if (ModEntry.config.ExtraDebugOutput) ModEntry.PMonitor.Log($"NPC {npc1.Name} has {owner.getFriendshipHeartLevelForNPC(npc1.Name)} hearts, needs {ModEntry.config.MinHeartsForChat}", LogLevel.Debug);
+                        continue;
+                    }
 
-                    // Monitor.Log($"NPCs {npc1.Name} {npc2.Name} dist {distance} roll {roll} vs {ModEntry.config.SpouseChatChance}: {lucky}", LogLevel.Debug);
                     if (Eligible(npc1, npc2))
                     {
                         chattingSpouses.Add(npc1.Name);
@@ -154,11 +197,9 @@ namespace MultipleSpouseDialog
 
                         PerformChat(npc1, npc2);
 
-                        //DelayedAction action = new DelayedAction(5000);
                         var t = Task.Run(async delegate
                         {
                             await Task.Delay(TimeSpan.FromSeconds(4));
-
                             npc1.FacingDirection = npc1face;
                             npc2.FacingDirection = npc2face;
                             return;
